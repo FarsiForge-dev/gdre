@@ -1,26 +1,20 @@
-# Godot RE Tools
+# Godot RE Tools — FarsiForge Dedicated CLI Edition
 
-## Introduction
+A high-performance, streamlined, headless-only reverse engineering toolkit for Godot games, customized specifically for the **FarsiForge** Persian localization framework.
 
-![Code Screenshot](images/screenshot.png)
+## Highlights of FarsiForge Edition:
+- **CLI-Only Architecture:** Completely stripped of heavy desktop GUI dialogs, media players, code editors, and asset libraries.
+- **Dedicated Font Detection:** Integrated `--detect-fonts` and `--list-fonts` scanner to detect and report TTF, OTF, WOFF, Bitmap, and Godot 4 FontData resources.
+- **Ultra-Lightweight Footprint:** Removed 5.6MB static plugin cache and unused GUI assets, reducing runtime resource requirements.
+- **Automated Localization Recovery:** Recovers `.pck` files, decompiles GDScript bytecode, and converts binary resources to text for subtitle and UI localization.
 
-This module includes following features:
-
-- Full project recovery
-- PCK archive extractor / creator.
-- GDScript batch decompiler.
-- Resource text <-> binary batch converter.
-
-Full project recovery performs the following:
-
-- Loads project resources from an APK, PCK, or embedded EXE file
-- Decompiles all GDScript scripts
-- Recovers the original project file
-- Converts all imported resources back to their original import formats
-- Converts any auto-converted binary resources back to their original text formats
-- Recreates any plugin configuration files
-
-This module has support for decompiling Godot 4.x, 3.x, and 2.x projects.
+## Core Features:
+- Full project recovery (`--recover`) with automatic font detection
+- PCK archive extraction (`--extract`)
+- Font Detection & JSON reporting (`--detect-fonts`, `--list-fonts`)
+- GDScript batch decompiler (`--decompile`)
+- Resource text <-> binary batch converter (`--txt-to-bin`, `--bin-to-txt`)
+- PCK patcher & creator (`--pck-patch`, `--pck-create`)
 
 ## Installation
 

@@ -1,0 +1,119 @@
+name: FarsiForge GDRE CLI Build
+
+on:
+  push:
+    branches:
+      - master
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  GODOT_REPOSITORY: nikitalita/godot
+  GODOT_MAIN_SYNC_REF: gdre-wb-f964fa714f5
+  SCONSFLAGS: verbose=yes warnings=all werror=no module_text_server_fb_enabled=yes minizip=yes deprecated=yes angle=yes accesskit=no
+  SCONSFLAGS_TEMPLATE: disable_path_overrides=no no_editor_splash=yes module_camera_enabled=no module_mobile_vr_enabled=no module_upnp_enabled=no module_websocket_enabled=no module_csg_enabled=yes module_gridmap_enabled=yes use_static_cpp=yes builtin_freetype=yes builtin_libpng=yes builtin_zlib=yes builtin_libwebp=yes builtin_libvorbis=yes builtin_libogg=yes disable_3d=no disable_godot_mono_decomp=yes disable_gifski=yes
+  SCONS_CACHE_MSVC_CONFIG: true
+
+jobs:
+  build-windows:
+    name: Build Windows Headless CLI
+    runs-on: windows-latest
+    steps:
+      - name: Configure Git Line Endings
+        run: |
+          git config --global core.autocrlf false
+          git config --global core.eol lf
+
+      - name: Checkout Godot Engine Core
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.GODOT_REPOSITORY }}
+          ref: ${{ env.GODOT_MAIN_SYNC_REF }}
+
+      - name: Checkout FarsiForge GDRE Module
+        uses: actions/checkout@v4
+        with:
+          path: modules/gdsdecomp
+          fetch-depth: 0
+
+      - name: Copy Build Actions
+        shell: bash
+        run: |
+          cp -R modules/gdsdecomp/.github/actions/* .github/actions/ || true
+
+      - name: Setup Python & SCons
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install SCons
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install scons
+
+      - name: Download Direct3D 12 SDK
+        shell: sh
+        run: |
+          python ./misc/scripts/install_d3d12_sdk_windows.py || true
+
+      - name: Setup Rust Toolchain
+        run: |
+          rustup target add x86_64-pc-windows-msvc
+
+      - name: Compile Godot Editor (Required for Project Exporter)
+        shell: pwsh
+        run: |
+          scons platform=windows target=editor arch=x86_64 production=yes debug_symbols=no tests=no ${{ env.SCONSFLAGS }} disable_godot_mono_decomp=yes disable_gifski=yes
+
+      - name: Compile Godot Template Release (Lightweight Headless Engine)
+        shell: pwsh
+        run: |
+          scons platform=windows target=template_release arch=x86_64 production=yes debug_symbols=no tests=no ${{ env.SCONSFLAGS }} ${{ env.SCONSFLAGS_TEMPLATE }} disable_godot_mono_decomp=yes disable_gifski=yes
+
+      - name: Setup rcedit
+        uses: robinraju/release-downloader@v1.5
+        with:
+          repository: electron/rcedit
+          latest: true
+          fileName: rcedit-x64.exe
+          out-file-path: ${{ runner.tool_cache }}/rcedit
+
+      - name: Configure rcedit PATH
+        run: |
+          Rename-Item ${{ runner.tool_cache }}\rcedit\rcedit-x64.exe ${{ runner.tool_cache }}\rcedit\rcedit.exe
+          echo "${{ runner.tool_cache }}\rcedit" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Export Standalone FarsiForge GDRE CLI
+        shell: pwsh
+        run: |
+          cd modules/gdsdecomp/standalone
+          pwsh -File ../.scripts/export.ps1 "Windows Desktop" -path ".export/gdre_tools.exe" --no-debug
+
+      - name: Package Windows Distribution Artifact
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist/windows | Out-Null
+          Copy-Item modules/gdsdecomp/standalone/.export/* dist/windows/ -Force -Recurse
+          $zipPath = "dist/gdre_tools-farsiforge-windows-x86_64.zip"
+          Compress-Archive -Path "dist/windows/*" -DestinationPath $zipPath -Force
+          Write-Host "Created bundle: $zipPath"
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gdre_tools-farsiforge-windows
+          path: dist/*.zip
+          retention-days: 14
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/gdre_tools-farsiforge-windows-x86_64.zip
+          generate_release_notes: true

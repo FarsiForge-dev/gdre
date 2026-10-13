@@ -20,6 +20,8 @@ static const HashSet<String> main_commands = {
 	"--txt-to-bin",
 	"--bin-to-txt",
 	"--patch-translations",
+	"--detect-fonts",
+	"--list-fonts",
 	"--gdre-help",
 	"--gdre-version",
 };

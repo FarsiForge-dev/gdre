@@ -75,8 +75,8 @@ def get_opts(platform):
     from SCons.Variables import BoolVariable
 
     opts = [
-        BoolVariable("disable_godot_mono_decomp", "Disable Godot Mono Decompilation", False),
-        BoolVariable("disable_gifski", "Disable Gifski", False),
+        BoolVariable("disable_godot_mono_decomp", "Disable Godot Mono Decompilation", True),
+        BoolVariable("disable_gifski", "Disable Gifski", True),
         BoolVariable("ignore_godot_branch_check", "Ignore Godot branch check", False),
     ]
     if not (platform == "android" or platform == "macos"):
