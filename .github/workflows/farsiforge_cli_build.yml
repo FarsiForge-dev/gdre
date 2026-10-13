@@ -14,8 +14,10 @@ permissions:
 env:
   GODOT_REPOSITORY: nikitalita/godot
   GODOT_MAIN_SYNC_REF: gdre-wb-f964fa714f5
-  SCONSFLAGS: verbose=yes warnings=all werror=no module_text_server_fb_enabled=yes minizip=yes deprecated=yes angle=yes accesskit=no
-  SCONSFLAGS_TEMPLATE: disable_path_overrides=no no_editor_splash=yes module_camera_enabled=no module_mobile_vr_enabled=no module_upnp_enabled=no module_websocket_enabled=no module_csg_enabled=yes module_gridmap_enabled=yes use_static_cpp=yes builtin_freetype=yes builtin_libpng=yes builtin_zlib=yes builtin_libwebp=yes builtin_libvorbis=yes builtin_libogg=yes disable_3d=no disable_godot_mono_decomp=yes disable_gifski=yes
+  SCONSFLAGS: verbose=yes warnings=all werror=no module_text_server_fb_enabled=yes minizip=yes deprecated=yes angle=no accesskit=no d3d12=no disable_godot_mono_decomp=yes disable_gifski=yes
+  SCONSFLAGS_TEMPLATE: disable_path_overrides=no no_editor_splash=yes module_camera_enabled=no module_mobile_vr_enabled=no module_upnp_enabled=no module_websocket_enabled=no module_csg_enabled=yes module_gridmap_enabled=yes use_static_cpp=yes builtin_freetype=yes builtin_libpng=yes builtin_zlib=yes builtin_libwebp=yes builtin_libvorbis=yes builtin_libogg=yes disable_3d=no
+  SCONS_CACHE: ${{ github.workspace }}/.scons_cache/
+  SCONS_CACHE_LIMIT: 4096
   SCONS_CACHE_MSVC_CONFIG: true
 
 jobs:
@@ -56,10 +58,13 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install scons
 
-      - name: Download Direct3D 12 SDK
-        shell: sh
-        run: |
-          python ./misc/scripts/install_d3d12_sdk_windows.py || true
+      - name: SCons Build Cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.SCONS_CACHE }}
+          key: ${{ runner.os }}-scons-cli-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-scons-cli-
 
       - name: Setup Rust Toolchain
         run: |
@@ -68,12 +73,12 @@ jobs:
       - name: Compile Godot Editor (Required for Project Exporter)
         shell: pwsh
         run: |
-          scons platform=windows target=editor arch=x86_64 production=yes debug_symbols=no tests=no ${{ env.SCONSFLAGS }} disable_godot_mono_decomp=yes disable_gifski=yes
+          scons platform=windows target=editor arch=x86_64 debug_symbols=no tests=no ${{ env.SCONSFLAGS }}
 
       - name: Compile Godot Template Release (Lightweight Headless Engine)
         shell: pwsh
         run: |
-          scons platform=windows target=template_release arch=x86_64 production=yes debug_symbols=no tests=no ${{ env.SCONSFLAGS }} ${{ env.SCONSFLAGS_TEMPLATE }} disable_godot_mono_decomp=yes disable_gifski=yes
+          scons platform=windows target=template_release arch=x86_64 production=yes debug_symbols=no tests=no ${{ env.SCONSFLAGS }} ${{ env.SCONSFLAGS_TEMPLATE }}
 
       - name: Setup rcedit
         uses: robinraju/release-downloader@v1.5
@@ -91,8 +96,8 @@ jobs:
       - name: Export Standalone FarsiForge GDRE CLI
         shell: pwsh
         run: |
-          cd modules/gdsdecomp/standalone
-          pwsh -File ../.scripts/export.ps1 "Windows Desktop" -path ".export/gdre_tools.exe" --no-debug
+          cd ${{ github.workspace }}/modules/gdsdecomp/standalone
+          pwsh -File ${{ github.workspace }}/modules/gdsdecomp/.scripts/export.ps1 "Windows Desktop" -path "${{ github.workspace }}/modules/gdsdecomp/standalone/.export/gdre_tools.exe" --no-debug
 
       - name: Package Windows Distribution Artifact
         shell: pwsh
@@ -101,13 +106,16 @@ jobs:
           Copy-Item modules/gdsdecomp/standalone/.export/* dist/windows/ -Force -Recurse
           $zipPath = "dist/gdre_tools-farsiforge-windows-x86_64.zip"
           Compress-Archive -Path "dist/windows/*" -DestinationPath $zipPath -Force
+          Copy-Item modules/gdsdecomp/standalone/.export/gdre_tools.exe dist/gdre_tools.exe -Force -ErrorAction SilentlyContinue
           Write-Host "Created bundle: $zipPath"
 
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
         with:
           name: gdre_tools-farsiforge-windows
-          path: dist/*.zip
+          path: |
+            dist/*.zip
+            dist/*.exe
           retention-days: 14
 
       - name: Publish GitHub Release
@@ -116,4 +124,5 @@ jobs:
         with:
           files: |
             dist/gdre_tools-farsiforge-windows-x86_64.zip
+            dist/gdre_tools.exe
           generate_release_notes: true
