@@ -32,6 +32,9 @@ const GLOB_NOTES = """Notes on Include/Exclude globs:
 """
 
 func _ready() -> void:
+	call_deferred("_run_cli")
+
+func _run_cli() -> void:
 	var args = get_sanitized_args()
 	handle_cli(args)
 	get_tree().quit(ret_code)
@@ -395,9 +398,13 @@ func decompile(files: PackedStringArray, bytecode_ver: String, out_dir: String, 
 		return 1
 	ensure_dir_exists(out_dir)
 	for f in matched:
-		var code: String = decomp.decompile_byte_code(f)
-		if code.is_empty():
+		var err = decomp.decompile_byte_code(f)
+		if err != OK:
 			print("[ERROR] Failed to decompile: " + f)
+			continue
+		var code: String = decomp.get_script_text()
+		if code.is_empty():
+			print("[ERROR] Decompiled code is empty: " + f)
 			continue
 		var out_p = out_dir.path_join(f.get_file().replace(".gdc", ".gd"))
 		var out_f = FileAccess.open(out_p, FileAccess.WRITE)
@@ -469,16 +476,22 @@ func patch_pck(src_file: String, dest_pck: String, patch_map: Dictionary, includ
 		return 1
 
 	var pck_creator = PckCreator.new()
-	var pack_info = GDRESettings.get_pack_info(src_file)
+	var pack_info_list = GDRESettings.get_pack_info_list()
+	if pack_info_list.size() == 0:
+		print("[ERROR] No pack info found in: " + src_file)
+		GDRESettings.unload_project()
+		return 1
+	var pack_info = pack_info_list[0]
 	var engine_ver = pack_info.get_version()
-	pck_creator.start_pck(dest_pck, pack_info.get_fmt_version(), engine_ver.major, engine_ver.minor, engine_ver.patch, pack_info.is_encrypted(), not embed_pck.is_empty(), embed_pck)
+	pck_creator.start_pck(dest_pck, pack_info.get_fmt_version(), engine_ver.get_major(), engine_ver.get_minor(), engine_ver.get_patch(), pack_info.is_encrypted(), not embed_pck.is_empty(), embed_pck)
 
-	for src_path in patch_map.keys():
-		var res_path = patch_map[src_path]
-		pck_creator.add_file(res_path, src_path)
-		print("  [PATCH] Added %s -> %s" % [src_path, res_path])
+	if patch_map.size() > 0:
+		pck_creator.add_files(patch_map)
+		for src_path in patch_map.keys():
+			print("  [PATCH] Added %s -> %s" % [src_path, patch_map[src_path]])
 
 	pck_creator.finish_pck()
+	GDRESettings.unload_project()
 	print("[SUCCESS] Patched PCK generated: " + dest_pck)
 	return 0
 

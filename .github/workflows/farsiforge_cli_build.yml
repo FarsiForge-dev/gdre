@@ -99,6 +99,23 @@ jobs:
           cd ${{ github.workspace }}/modules/gdsdecomp/standalone
           pwsh -File ${{ github.workspace }}/modules/gdsdecomp/.scripts/export.ps1 "Windows Desktop" -path "${{ github.workspace }}/modules/gdsdecomp/standalone/.export/gdre_tools.exe" --no-debug
 
+      - name: Configure Console Subsystem for Native CLI
+        shell: pwsh
+        run: |
+          $exePath = "${{ github.workspace }}/modules/gdsdecomp/standalone/.export/gdre_tools.exe"
+          if (Test-Path $exePath) {
+            python -c @"
+          import struct
+          with open(r'$exePath', 'r+b') as f:
+              f.seek(0x3c)
+              e_lfanew = struct.unpack('<I', f.read(4))[0]
+              subsys_pos = e_lfanew + 24 + 68
+              f.seek(subsys_pos)
+              f.write(struct.pack('<H', 3))
+          print('Successfully patched PE Subsystem to Console')
+          "@
+          }
+
       - name: Package Windows Distribution Artifact
         shell: pwsh
         run: |
