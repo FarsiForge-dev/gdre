@@ -314,7 +314,7 @@ Dictionary GodotMonoDecompWrapper::get_language_versions() {
 Error GodotMonoDecompWrapper::set_settings(const GodotMonoDecompSettings &p_settings) {
 	ERR_FAIL_V_MSG(ERR_UNAVAILABLE, GODOT_MONO_DECOMP_DISABLED_ERROR_MESSAGE);
 }
-bool GodotMonoDecompWrapper::is_file_assembly(const String &file) const {
+bool GodotMonoDecompWrapper::is_file_assembly(const String &file) {
 	ERR_FAIL_V_MSG(false, GODOT_MONO_DECOMP_DISABLED_ERROR_MESSAGE);
 }
 Vector<String> GodotMonoDecompWrapper::get_global_class_files() {
